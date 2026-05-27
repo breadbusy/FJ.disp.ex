@@ -18,7 +18,7 @@ def trace_fj_ridge(
     start_vel_idx: int,
     start_freq_idx: int,
     max_vel_jump_ratio: float = 1.5,
-    search_window: int = 15,
+    search_window_ms: float = 200.0,
 ) -> np.ndarray:
     """从起点向左右追踪 FJ 频散谱的波峰。
 
@@ -29,7 +29,7 @@ def trace_fj_ridge(
     start_vel_idx: 起始速度索引
     start_freq_idx: 起始频率索引
     max_vel_jump_ratio: 相邻频率最大速度跳变倍数
-    search_window: 每列搜索窗口半径
+    search_window_ms: 每列搜索窗口半径 (m/s)，与速度分辨率无关
 
     返回
     -------
@@ -40,11 +40,15 @@ def trace_fj_ridge(
     tracked[start_freq_idx] = start_vel_idx
     n_vels = energy.shape[0]
 
+    # 将速度窗口 (m/s) 换算为索引步数，至少搜索 ±3 个点
+    vel_spacing = np.median(np.diff(velocities))
+    search_steps = max(3, int(np.ceil(search_window_ms / vel_spacing)))
+
     # 向左追踪
     prev = start_vel_idx
     for fi in range(start_freq_idx - 1, -1, -1):
-        lo = max(0, prev - search_window)
-        hi = min(n_vels, prev + search_window + 1)
+        lo = max(0, prev - search_steps)
+        hi = min(n_vels, prev + search_steps + 1)
         col = energy[lo:hi, fi]
         if len(col) == 0:
             tracked[fi] = prev
@@ -64,8 +68,8 @@ def trace_fj_ridge(
     # 向右追踪
     prev = start_vel_idx
     for fi in range(start_freq_idx + 1, n_freqs):
-        lo = max(0, prev - search_window)
-        hi = min(n_vels, prev + search_window + 1)
+        lo = max(0, prev - search_steps)
+        hi = min(n_vels, prev + search_steps + 1)
         col = energy[lo:hi, fi]
         if len(col) == 0:
             tracked[fi] = prev
